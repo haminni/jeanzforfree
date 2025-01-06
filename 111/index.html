@@ -1720,11 +1720,21 @@
     </div>
 
     <script>
+        // 错误处理函数
         function handleImageError(img) {
-            img.onerror = null;
+            console.error('图片加载失败:', img.src);
+            img.onerror = null;  // 防止循环调用
             img.src = '../default.jpg';
         }
 
+        function handleAudioError(audio) {
+            console.error('音频加载失败:', audio.src);
+            if (currentPlayingLink) {
+                currentPlayingLink.classList.remove('playing');
+            }
+        }
+
+        // 路径编码函数
         function getEncodedPath(path) {
             // 分割路径为目录和文件名
             const parts = path.split('/');
@@ -1740,7 +1750,7 @@
             return `${directory}/${encodedFileName}`;
         }
 
-        const albums = [
+        var albums = [
             {
                 title: "NewJeans 1st EP 'New Jeans'",
                 image: "../zhuanjitupian/NewJeans 1st EP 'New Jeans'.jpg",
@@ -1788,40 +1798,48 @@
                 ]
             }
         ];
+
+        // 处理路径编码
+        albums = albums.map(album => ({
+            ...album,
+            image: getEncodedPath(album.image),
+            songs: album.songs.map(song => ({
+                ...song,
+                file: getEncodedPath(song.file)
+            }))
+        }));
+
         const members = [
             {
                 name: "Minji",
-                images: Array.from({length: 5}, (_, i) => `../members/Minji/${i + 1}.jpg`)
+                images: Array.from({length: 5}, (_, i) => getEncodedPath(`../members/Minji/${i + 1}.jpg`))
             },
             {
                 name: "Hanni",
-                images: Array.from({length: 5}, (_, i) => `../members/Hanni/${i + 1}.jpg`)
+                images: Array.from({length: 5}, (_, i) => getEncodedPath(`../members/Hanni/${i + 1}.jpg`))
             },
             {
                 name: "Danielle",
-                images: Array.from({length: 5}, (_, i) => `../members/Danielle/${i + 1}.jpg`)
+                images: Array.from({length: 5}, (_, i) => getEncodedPath(`../members/Danielle/${i + 1}.jpg`))
             },
             {
                 name: "Haerin",
-                images: Array.from({length: 5}, (_, i) => `../members/Haerin/${i + 1}.jpg`)
+                images: Array.from({length: 5}, (_, i) => getEncodedPath(`../members/Haerin/${i + 1}.jpg`))
             },
             {
                 name: "Hyein",
-                images: Array.from({length: 5}, (_, i) => `../members/Hyein/${i + 1}.jpg`)
+                images: Array.from({length: 5}, (_, i) => getEncodedPath(`../members/Hyein/${i + 1}.jpg`))
             }
         ];
 
-        let currentAudio = document.getElementById('audio-player');
-        let musicPlayer = document.querySelector('.music-player');
-        let currentPlayingLink = null;
+        // 全局变量声明
+        var currentAudio = document.getElementById('audio-player');
+        var musicPlayer = document.querySelector('.music-player');
+        var currentPlayingLink = null;
 
         // 添加音频错误处理
-        currentAudio.onerror = () => {
-            alert('音频文件加载失败，请检查文件是否存在');
-            if (currentPlayingLink) {
-                currentPlayingLink.classList.remove('playing');
-                currentPlayingLink = null;
-            }
+        currentAudio.onerror = function() {
+            handleAudioError(this);
         };
 
         const albumsContainer = document.querySelector('.albums');
@@ -1857,13 +1875,13 @@
             
             const albumCover = document.createElement('div');
             albumCover.className = 'album-cover';
-            albumCover.style.backgroundImage = `url("${getEncodedPath(album.image)}")`;
+            albumCover.style.backgroundImage = `url("${album.image}")`;
             
             // 添加调试日志
             console.log('Loading album cover:', {
                 title: album.title,
                 originalPath: album.image,
-                encodedPath: getEncodedPath(album.image)
+                encodedPath: album.image
             });
             
             // 添加专辑点击事件
@@ -1909,14 +1927,14 @@
                     } else {
                         // 没有记忆，播放第一首歌
                         const firstSong = album.songs[0];
-                        currentAudio.src = getEncodedPath(firstSong.file);
+                        currentAudio.src = album.songs[0].file;
                         const firstLink = div.querySelector('.songs a');
                         currentPlayingLink = firstLink;
                         currentPlayingLink.classList.add('playing');
                         
                         // 保存到记忆
                         albumMemory.set(div, {
-                            songFile: getEncodedPath(firstSong.file),
+                            songFile: album.songs[0].file,
                             link: firstLink
                         });
                     }
@@ -1961,14 +1979,14 @@
                     
                     currentAlbumDiv = div;
                     currentPlayingLink = a;
-                    currentAudio.src = getEncodedPath(song.file);
+                    currentAudio.src = song.file;
                     currentAudio.play();
                     a.classList.add('playing');
                     albumCover.classList.add('rotating');
                     
                     // 更新记忆
                     albumMemory.set(div, {
-                        songFile: getEncodedPath(song.file),
+                        songFile: song.file,
                         link: a
                     });
                     
@@ -2034,7 +2052,7 @@
             div.className = 'member';
             
             const img = document.createElement('img');
-            img.src = getEncodedPath(member.images[0]);
+            img.src = member.images[0];
             img.alt = member.name;
             img.onerror = () => handleImageError(img);
             
@@ -2057,7 +2075,7 @@
                 if (nextIndex !== currentIndex) {
                     img.style.opacity = '0';
                     setTimeout(() => {
-                        img.src = getEncodedPath(member.images[nextIndex]);
+                        img.src = member.images[nextIndex];
                         img.style.opacity = '1';
                         currentIndex = nextIndex;
                     }, 500);
@@ -2068,18 +2086,18 @@
                 const viewer = document.querySelector('.image-viewer');
                 const viewerImg = viewer.querySelector('img');
                 viewer.classList.add('active');
-                viewerImg.src = getEncodedPath(member.images[currentIndex]);
+                viewerImg.src = member.images[currentIndex];
 
                 let viewingIndex = currentIndex;
 
                 viewer.querySelector('.prev').onclick = () => {
                     viewingIndex = (viewingIndex - 1 + member.images.length) % member.images.length;
-                    viewerImg.src = getEncodedPath(member.images[viewingIndex]);
+                    viewerImg.src = member.images[viewingIndex];
                 };
 
                 viewer.querySelector('.next').onclick = () => {
                     viewingIndex = (viewingIndex + 1) % member.images.length;
-                    viewerImg.src = getEncodedPath(member.images[viewingIndex]);
+                    viewerImg.src = member.images[viewingIndex];
                 };
 
                 viewer.querySelector('.close').onclick = () => {
@@ -2129,18 +2147,18 @@
                     // 获取对应的歌曲数据
                     const album = albums.find(a => 
                         currentAlbumDiv.querySelector('.album-cover').style.backgroundImage.includes(
-                            getEncodedPath(a.image)
+                            album.image
                         )
                     );
                     const nextSong = album.songs[currentIndex + 1];
                     
                     // 设置并播放下一首歌
-                    currentAudio.src = getEncodedPath(nextSong.file);
+                    currentAudio.src = nextSong.file;
                     currentAudio.play();
                     
                     // 更新记忆
                     albumMemory.set(currentAlbumDiv, {
-                        songFile: getEncodedPath(nextSong.file),
+                        songFile: nextSong.file,
                         link: nextLink
                     });
                     
@@ -2166,11 +2184,11 @@
 
         let currentBgIndex = 0;
         const hero = document.querySelector('.hero');
-        hero.style.backgroundImage = `url('${getEncodedPath(backgroundImages[0])}')`;
+        hero.style.backgroundImage = `url('${backgroundImages[0]}')`;
 
         function changeBackground() {
             currentBgIndex = (currentBgIndex + 1) % backgroundImages.length;
-            hero.style.backgroundImage = `url('${getEncodedPath(backgroundImages[currentBgIndex])}')`;
+            hero.style.backgroundImage = `url('${backgroundImages[currentBgIndex]}')`;
         }
 
         // 每5秒切换一次背景图片
@@ -2252,7 +2270,7 @@
             
             setTimeout(() => {
                 currentBgIndex = (currentBgIndex + 1) % backgroundImages.length;
-                hero.style.backgroundImage = `url('${getEncodedPath(backgroundImages[currentBgIndex])}')`;
+                hero.style.backgroundImage = `url('${backgroundImages[currentBgIndex]}')`;
                 hero.style.opacity = '1';
             }, 500);
         }
